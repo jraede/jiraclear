@@ -1,6 +1,7 @@
 package main
 
 import (
+	"code.google.com/p/gopass"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -28,7 +29,6 @@ func main() {
 	project := flag.String("project", "", "The project ID in JIRA")
 	url := flag.String("url", "", "The URL to your JIRA install")
 	username := flag.String("username", "", "JIRA username")
-	password := flag.String("password", "", "JIRA password")
 	status := flag.String("status", "Live", "JIRA status to look for")
 
 	flag.Parse()
@@ -45,12 +45,13 @@ func main() {
 		log.Fatal("Username is required!")
 	}
 
-	if len(*password) == 0 {
-		log.Fatal("Password is required!")
-	}
-
 	if len(*status) == 0 {
 		log.Fatal("Status is required!")
+	}
+
+	password, err := gopass.GetPass("Enter your JIRA password:")
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Get a list of branches...
@@ -78,15 +79,13 @@ func main() {
 		}
 	}
 
-	log.Println(branchesToCheck)
-
 	req, err := http.NewRequest("GET", *url+"/rest/api/2/search?jql=key%20IN%20("+strings.Join(branchKeys, ",")+")%20AND%20status="+*status+"&fields=status", nil)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	req.SetBasicAuth(*username, *password)
+	req.SetBasicAuth(*username, password)
 
 	client := http.Client{}
 
@@ -115,8 +114,6 @@ func main() {
 		branchesToDelete = append(branchesToDelete, branchesToCheck[i.Key])
 
 	}
-
-	log.Println(branchesToDelete)
 
 	fmt.Sprintf("Deleting %d branches\n", len(branchesToDelete))
 	for _, toDelete := range branchesToDelete {
